@@ -970,14 +970,16 @@
       return match ? match[1] : '';
     },
 
+    _getRelevantSearch: function() {
+      return window.location.search;
+    },
+
     // Get the cross-browser normalized URL fragment, either from the URL,
     // the hash, or the override.
     getFragment: function(fragment, forcePushState) {
       if (fragment == null) {
         if (this._hasPushState || forcePushState) {
-          fragment = window.location.pathname;
-          var search = window.location.search;
-          if (search) fragment += search;
+          fragment = window.location.pathname + this._getRelevantSearch();
         } else {
           fragment = this.getHash();
         }
@@ -1015,6 +1017,24 @@
         $(window).bind('hashchange', this.checkUrl);
       } else if (this._wantsHashChange) {
         this._checkUrlInterval = setInterval(this.checkUrl, this.interval);
+      }
+
+      // Determine if and how to include search pushState fragments
+      this._getRelevantSearch= function() {return window.location.search||''} // default: search: true -- backwards compatible
+      if (this.options.hasOwnProperty('searchRelevant')) {
+        var optSearch= this.options.searchRelevant;
+        if (!optSearch) this._getRelevantSearch= function() {return '';} // search: false -- query string is irrelevant
+        else if ($.isArray(optSearch)) { // search: ['array', 'of', 'fields', 'to', 'include', 'in', 'route']
+          var valid= {};
+          for (var nm in optSearch) valid[nm]= true;
+          this._getRelevantSearch= function() {
+            var pairs= (window.location.search||'').split(/[?&]/);
+            var search= _.filter(pairs, function(pair) {
+              return valid[pair.replace(/=.*/, '')];
+            }).join('&');
+            return search ?'?'+search :'';
+          }
+        }
       }
 
       // Determine if we need to change the base url, for a pushState link
